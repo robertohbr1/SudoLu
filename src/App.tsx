@@ -7,12 +7,14 @@ import { ActionToolbar } from './components/ActionToolbar';
 import { NumberKeypad } from './components/NumberKeypad';
 import { SettingsModal } from './components/SettingsModal';
 import { VictoryModal } from './components/VictoryModal';
+import { TutorialModal } from './components/tutorial/TutorialModal';
 import { useGameSettings } from './state/useGameSettings';
 import { useSudokuGame } from './state/useSudokuGame';
 import { useKeyboardShortcuts } from './utils/keyboardShortcuts';
 
 export const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const { settings, updateSetting, toggleSetting } = useGameSettings();
   const game = useSudokuGame(settings);
 
@@ -43,6 +45,7 @@ export const App: React.FC = () => {
             isDarkMode={settings.isDarkMode}
             onToggleDarkMode={() => toggleSetting('isDarkMode')}
             onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenTutorial={() => setIsTutorialOpen(true)}
             onRestart={game.restartCurrentGame}
             onNewGame={() => game.startNewGame(game.difficulty)}
           />
@@ -111,6 +114,11 @@ export const App: React.FC = () => {
         timerSeconds={game.timerSeconds}
         mistakesCount={game.mistakesCount}
         onPlayAgain={() => game.startNewGame(game.difficulty)}
+      />
+
+      <TutorialModal
+        isOpen={isTutorialOpen}
+        onClose={() => setIsTutorialOpen(false)}
       />
     </div>
   );

@@ -24,6 +24,13 @@
 - **4 níveis**: Fácil (38–42 dicas), Médio (32–36), Difícil (27–31) e Especialista (23–26).
 - Gerador algorítmico com **backtracking + heurística MRV** que garante **solução única** para cada puzzle.
 
+### 🎓 Aprenda a Jogar (Tutorial Interativo com Animações)
+O SudoLu conta com um assistente visual completo para ensinar as regras e estratégias do jogo:
+- **Regras Fundamentais Animadas**: Demonstração visual interativa das regras de Linhas, Colunas e Blocos 3×3.
+- **Estratégia de Varredura por Dígito (1 ao 9)**: Simulação animada do método de varredura cruzada (*cross-hatching*), onde um número (ex: 1) emite feixes pelas linhas e colunas bloqueando opções até sobrar apenas uma célula em um bloco 3×3. Ao resolver, o ciclo avança do 1 ao 9 e reinicia.
+- **Técnica das Anotações (Modo Lápis)**: Demonstração de eliminação de candidatos quando a varredura visual direta não é suficiente. Mostra em tempo real como o preenchimento de uma casa vizinha elimina notas até revelar um candidato único (*naked single*).
+- **Dicas e Atalhos Práticos**: Guia de uso com o Modo Dígito Primeiro, Duplo-Clique para auto-preenchimento, Auto-Notas e atalhos de teclado.
+
 ### 🔢 Números Possíveis (Candidatos / Anotações)
 | Modo | Descrição |
 |------|-----------|
@@ -76,7 +83,8 @@
 src/
 ├── types/
 │   ├── sudoku.types.ts        # Tipos do domínio (CellModel, GameMoveRecord, etc.)
-│   └── settings.types.ts      # Configurações e preferências do jogador
+│   ├── settings.types.ts      # Configurações e preferências do jogador
+│   └── tutorial.types.ts      # Tipos e estruturas do tutorial interativo
 ├── engine/
 │   ├── boardGenerator.ts      # Gerador de puzzles por dificuldade
 │   ├── boardSolver.ts         # Resolvedor com backtracking + MRV
@@ -95,19 +103,24 @@ src/
 │   ├── StatsBar.tsx           # Cronômetro, erros, modo de entrada
 │   ├── SettingsModal.tsx      # Modal de configurações
 │   ├── VictoryModal.tsx       # Modal de vitória com confete
-│   └── Header.tsx             # Cabeçalho com ações globais
+│   ├── Header.tsx             # Cabeçalho com ações globais e botão de tutorial
+│   └── tutorial/              # Módulo de tutorial interativo com animações
+│       ├── TutorialModal.tsx
+│       ├── TutorialRulesView.tsx
+│       ├── TutorialCrossHatchView.tsx
+│       ├── TutorialNotesView.tsx
+│       └── TutorialTipsView.tsx
 ├── utils/
 │   ├── formatters.ts          # Formatadores de tempo e dados
-│   └── keyboardShortcuts.ts   # Hook de atalhos de teclado para PC
+│   ├── keyboardShortcuts.ts   # Hook de atalhos de teclado para PC
+│   └── tutorialHelpers.ts     # Lógica pura de navegação e demonstração do tutorial
 ├── App.tsx
 └── main.tsx
 tests/
 ├── boardGenerator.test.ts
 ├── boardSolver.test.ts
 ├── candidateEvaluator.test.ts
-├── formatters.test.ts
-├── gameEngine.test.ts
-├── keyboardShortcuts.test.ts
+├── tutorialHelpers.test.ts
 └── validator.test.ts
 iniciar-sudolu.bat             # Inicializador rápido para Windows (servidor + navegador padrão)
 create-shortcut.ps1            # Script de criação do atalho na Área de Trabalho (suporta OneDrive)
