@@ -4,8 +4,9 @@ import { CrossHatchCellCoordinate } from '../../types/tutorial.types';
 import { isCoordinateBlockedByRay } from '../../utils/tutorialHelpers';
 
 const DEMO_PLACEMENTS_1: readonly CrossHatchCellCoordinate[] = [
-  { row: 0, col: 1 },
-  { row: 1, col: 7 },
+  { row: 0, col: 1 }, // Bloco superior esquerdo (linha 0)
+  { row: 1, col: 4 }, // Segunda linha do bloco central (linha 1)
+  { row: 7, col: 7 }, // Bloco inferior (coluna 7)
 ];
 
 const TARGET_WINNING_CELL: CrossHatchCellCoordinate = { row: 2, col: 8 };
@@ -20,7 +21,8 @@ function resolveCellContent(
   isPlaced: boolean
 ): number | string {
   if (row === 0 && col === 1) return 1;
-  if (row === 1 && col === 7) return 1;
+  if (row === 1 && col === 4) return 1; // 1 na segunda linha do bloco central
+  if (row === 7 && col === 7) return 1; // 1 no bloco inferior (coluna 7)
   if (row === 0 && col === 6) return 4;
   if (row === 0 && col === 7) return 7;
   if (row === 1 && col === 6) return 9;
@@ -63,11 +65,11 @@ export const TutorialCrossHatchView: React.FC = () => {
           Estratégia de Varredura por Dígito (1 ao 9)
         </h4>
         <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-          1. Selecione o dígito <strong>{activeDigit}</strong> e observe as linhas e colunas onde ele já existe (feixes vermelhos).
+          1. Selecione o dígito <strong>{activeDigit}</strong> e trace os feixes onde ele já existe (linhas e colunas vermelhas).
           <br />
-          2. No bloco 3×3 superior direito (destacado em amarelo), todas as outras posições estão ocupadas ou bloqueadas pelos outros 1s.
+          2. Veja os 1s existentes: um no bloco esquerdo (linha 0), outro na <strong>segunda linha do bloco central</strong> (linha 1), e outro no bloco inferior (coluna 7).
           <br />
-          3. Apenas a <strong>célula verde</strong> pode receber o 1! Após colocar, vá para o número 2, até o 9, e reinicie o ciclo no 1.
+          3. No bloco superior direito (em amarelo), todas as casas estão bloqueadas pelos feixes ou ocupadas. Apenas a <strong>célula verde</strong> pode receber o 1!
         </p>
       </div>
 
