@@ -7,7 +7,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=flat-square&logo=typescript)
 ![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38BDF8?style=flat-square&logo=tailwindcss)
-![Vitest](https://img.shields.io/badge/Vitest-14%20testes-6E9F18?style=flat-square&logo=vitest)
+![Vitest](https://img.shields.io/badge/Vitest-35%20testes-6E9F18?style=flat-square&logo=vitest)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 **Uma experiência de Sudoku completa para PC — com geração de puzzles, candidatos automáticos, anotações manuais, atalhos de teclado, tema escuro e muito mais.**
@@ -30,13 +30,14 @@
 | **Auto-Candidatos** | Exibe em tempo real todos os números matematicamente válidos em cada célula vazia |
 | **Anotações Manuais (Lápis)** | Adicione ou remova candidatos individualmente com o Modo Lápis |
 | **Auto-Notas** | Preenche automaticamente todas as células vazias com seus candidatos válidos em um clique |
+| **Destaque Dinâmico de Candidatos** | Ao selecionar um número no teclado ou tabuleiro, ele e suas ocorrências nas auto-notas recebem badges circulares azuis destacados |
 | **Duplo-Clique no Dígito** | Preenche todas as células onde aquele número é o **único candidato possível** |
 
 ### 🖱️ Modos de Entrada
 | Modo | Comportamento |
 |------|---------------|
-| **Dígito Primeiro** *(padrão)* | Selecione um número (1–9) → clique nas células para preencher rapidamente |
-| **Célula Primeiro** | Selecione uma célula → insira o dígito pelo teclado ou keypad |
+| **Célula Primeiro** *(padrão)* | Selecione uma célula → insira o dígito pelo teclado ou keypad |
+| **Dígito Primeiro** | Selecione um número (1–9) → clique nas células para preencher rapidamente |
 
 ### ⌨️ Atalhos de Teclado para PC
 | Tecla | Ação |
@@ -47,13 +48,13 @@
 | `N` ou `P` | Alternar modo Lápis (anotações) |
 | `Ctrl+Z` | Desfazer jogada |
 | `Ctrl+Y` / `Ctrl+Shift+Z` | Refazer jogada |
-| `H` | Dica para a célula selecionada |
+| `H` | Dica inteligente |
 
 ### 🛠️ Configurações Personalizáveis
 - ✅ Exibição automática de candidatos (auto-candidatos)
 - ✅ Permissão para edição manual de candidatos (anotações)
 - ✅ Remoção automática de candidatos ao preencher uma célula
-- ✅ Destaque de dígitos iguais no tabuleiro
+- ✅ Destaque de dígitos iguais no tabuleiro e nas auto-notas
 - ✅ Destaque de linha, coluna e bloco 3×3 da célula selecionada
 - ✅ Destaque visual de conflitos e erros
 - ✅ Modo Claro / Escuro (persistido)
@@ -62,7 +63,8 @@
 ### 🏆 Outros Recursos
 - Cronômetro e contador de erros
 - Desfazer / Refazer com suporte a **operações em lote** (um único Ctrl+Z desfaz o duplo-clique)
-- Dica: revela o número correto da célula selecionada
+- **Dica Inteligente**: revela o valor da célula selecionada ou encontra a célula com erro/vazia automaticamente
+- **Apagar Abrangente**: remove dígitos e anotações, além de modo Borracha visual ao clicar sem célula selecionada
 - Modal de vitória com animação de confete (canvas-confetti)
 - Interface totalmente responsiva
 
@@ -79,21 +81,23 @@ src/
 │   ├── boardGenerator.ts      # Gerador de puzzles por dificuldade
 │   ├── boardSolver.ts         # Resolvedor com backtracking + MRV
 │   ├── candidateEvaluator.ts  # Cálculo de candidatos válidos por célula
+│   ├── gameEngine.ts          # Lógica do jogo (movimentos, apagar, dicas, auto-fill)
 │   └── validator.ts           # Detecção de conflitos e condição de vitória
 ├── state/
 │   ├── useSudokuGame.ts       # Hook principal de estado do jogo
 │   └── useGameSettings.ts     # Hook de preferências com persistência
 ├── components/
 │   ├── SudokuBoard.tsx        # Grade 9×9 com blocos 3×3
-│   ├── SudokuCell.tsx         # Célula individual com mini-grade de candidatos
+│   ├── SudokuCell.tsx         # Célula individual com mini-grade e destaque de candidatos
 │   ├── NumberKeypad.tsx       # Teclado 1–9 com duplo-clique
-│   ├── ActionToolbar.tsx      # Barra de ações (desfazer, lápis, dica, etc.)
+│   ├── ActionToolbar.tsx      # Barra de ações (desfazer, borracha, lápis, dica, etc.)
 │   ├── DifficultySelector.tsx # Seletor de dificuldade
 │   ├── StatsBar.tsx           # Cronômetro, erros, modo de entrada
 │   ├── SettingsModal.tsx      # Modal de configurações
 │   ├── VictoryModal.tsx       # Modal de vitória com confete
 │   └── Header.tsx             # Cabeçalho com ações globais
 ├── utils/
+│   ├── formatters.ts          # Formatadores de tempo e dados
 │   └── keyboardShortcuts.ts   # Hook de atalhos de teclado para PC
 ├── App.tsx
 └── main.tsx
@@ -101,7 +105,13 @@ tests/
 ├── boardGenerator.test.ts
 ├── boardSolver.test.ts
 ├── candidateEvaluator.test.ts
+├── formatters.test.ts
+├── gameEngine.test.ts
+├── keyboardShortcuts.test.ts
 └── validator.test.ts
+iniciar-sudolu.bat             # Inicializador rápido para Windows (servidor + navegador padrão)
+create-shortcut.ps1            # Script de criação do atalho na Área de Trabalho (suporta OneDrive)
+sudolu.ico                     # Ícone do aplicativo para Windows
 ```
 
 ---
@@ -127,6 +137,21 @@ npm run dev
 # Acesse: http://localhost:5173
 ```
 
+### ⚡ Execução Rápida no Windows (Atalho na Área de Trabalho)
+
+Para iniciar o jogo diretamente como um aplicativo no Windows:
+
+1. **Gerar o atalho no Desktop**:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\create-shortcut.ps1
+   ```
+   *Cria automaticamente o atalho com ícone personalizado na Área de Trabalho (compatível com pastas locais e sincronizadas via OneDrive).*
+
+2. **Iniciar o jogo**:
+   Dê um duplo-clique no atalho **SudoLu** na Área de Trabalho ou execute [`iniciar-sudolu.bat`](iniciar-sudolu.bat).
+   - Inicia o servidor local Vite e abre uma janela no seu navegador padrão em `http://localhost:5173`.
+   - Se o servidor já estiver ativo, detecta automaticamente e apenas abre uma nova aba no navegador sem duplicar o processo.
+
 ### Outros Comandos
 
 ```bash
@@ -144,16 +169,19 @@ npm run preview
 
 ## 🧪 Testes
 
-O projeto inclui **14 testes unitários** cobrindo o motor do jogo:
+O projeto conta com **35 testes unitários** automatizados com Vitest:
 
 ```
-✓ tests/validator.test.ts          (3 testes)
-✓ tests/candidateEvaluator.test.ts (4 testes)
 ✓ tests/boardSolver.test.ts        (4 testes)
 ✓ tests/boardGenerator.test.ts     (3 testes)
+✓ tests/gameEngine.test.ts         (12 testes)
+✓ tests/candidateEvaluator.test.ts (4 testes)
+✓ tests/validator.test.ts          (5 testes)
+✓ tests/formatters.test.ts         (4 testes)
+✓ tests/keyboardShortcuts.test.ts  (3 testes)
 
-Test Files  4 passed (4)
-     Tests  14 passed (14)
+Test Files  7 passed (7)
+     Tests  35 passed (35)
 ```
 
 ---
