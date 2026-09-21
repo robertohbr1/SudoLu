@@ -7,7 +7,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=flat-square&logo=typescript)
 ![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38BDF8?style=flat-square&logo=tailwindcss)
-![Vitest](https://img.shields.io/badge/Vitest-35%20testes-6E9F18?style=flat-square&logo=vitest)
+![Vitest](https://img.shields.io/badge/Vitest-37%20testes-6E9F18?style=flat-square&logo=vitest)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 **Uma experiência de Sudoku completa para PC — com geração de puzzles, candidatos automáticos, anotações manuais, atalhos de teclado, tema escuro e muito mais.**
@@ -23,6 +23,7 @@
 ### 🎯 Seleção de Dificuldade
 - **4 níveis**: Fácil (38–42 dicas), Médio (32–36), Difícil (27–31) e Especialista (23–26).
 - Gerador algorítmico com **backtracking + heurística MRV** que garante **solução única** para cada puzzle.
+- **Validação e Proteção de Partida**: Se o desafio já estiver iniciado (com números informados pelo jogador) e não estiver totalmente resolvido, o sistema solicita confirmação antes de trocar de desafio para prevenir a perda acidental da solução atual.
 
 ### 🎓 Aprenda a Jogar (Tutorial Interativo com Animações)
 O SudoLu conta com um assistente visual completo para ensinar as regras e estratégias do jogo:
@@ -37,8 +38,11 @@ O SudoLu conta com um assistente visual completo para ensinar as regras e estrat
 | **Auto-Candidatos** | Exibe em tempo real todos os números matematicamente válidos em cada célula vazia |
 | **Anotações Manuais (Lápis)** | Adicione ou remova candidatos individualmente com o Modo Lápis |
 | **Auto-Notas** | Preenche automaticamente todas as células vazias com seus candidatos válidos em um clique |
+| **Alto Contraste e Legibilidade** | Tipografia encorpada e cores calibradas para visualização cristalina no fundo branco e modo escuro, mantendo as anotações visíveis mesmo com filtro ativo |
 | **Destaque Dinâmico de Candidatos** | Ao selecionar um número no teclado ou tabuleiro, ele e suas ocorrências nas auto-notas recebem badges circulares azuis destacados |
+| **Destaque Visual de Nota Única** | Células com apenas 1 candidato restante recebem um badge verde esmeralda de alto contraste para localização visual instantânea |
 | **Duplo-Clique no Dígito** | Preenche todas as células onde aquele número é o **único candidato possível** |
+| **Auto-Preenchimento em Cascata** | Resolução automática e em cadeia quando resta apenas uma anotação visível (*naked single*), ativável via checkbox na barra superior ou configurações |
 
 ### 🖱️ Modos de Entrada
 | Modo | Comportamento |
@@ -60,6 +64,7 @@ O SudoLu conta com um assistente visual completo para ensinar as regras e estrat
 ### 🛠️ Configurações Personalizáveis
 - ✅ Exibição automática de candidatos (auto-candidatos)
 - ✅ Permissão para edição manual de candidatos (anotações)
+- ✅ Auto-preenchimento em cascata de notas únicas (naked singles)
 - ✅ Remoção automática de candidatos ao preencher uma célula
 - ✅ Destaque de dígitos iguais no tabuleiro e nas auto-notas
 - ✅ Destaque de linha, coluna e bloco 3×3 da célula selecionada
@@ -82,49 +87,52 @@ O SudoLu conta com um assistente visual completo para ensinar as regras e estrat
 ```
 src/
 ├── types/
-│   ├── sudoku.types.ts        # Tipos do domínio (CellModel, GameMoveRecord, etc.)
-│   ├── settings.types.ts      # Configurações e preferências do jogador
-│   └── tutorial.types.ts      # Tipos e estruturas do tutorial interativo
+│   ├── sudoku.types.ts            # Tipos do domínio (CellModel, GameMoveRecord, etc.)
+│   ├── settings.types.ts          # Configurações e preferências do jogador
+│   └── tutorial.types.ts          # Tipos e estruturas do tutorial interativo
 ├── engine/
-│   ├── boardGenerator.ts      # Gerador de puzzles por dificuldade
-│   ├── boardSolver.ts         # Resolvedor com backtracking + MRV
-│   ├── candidateEvaluator.ts  # Cálculo de candidatos válidos por célula
-│   ├── gameEngine.ts          # Lógica do jogo (movimentos, apagar, dicas, auto-fill)
-│   └── validator.ts           # Detecção de conflitos e condição de vitória
+│   ├── autoFillEngine.ts          # Motor de preenchimento em cascata de candidatos únicos
+│   ├── boardGenerator.ts          # Gerador de puzzles por dificuldade
+│   ├── boardSolver.ts             # Resolvedor com backtracking + MRV
+│   ├── candidateEvaluator.ts      # Cálculo de candidatos válidos por célula
+│   ├── gameEngine.ts              # Lógica do jogo (movimentos, apagar, dicas, validações)
+│   └── validator.ts               # Detecção de conflitos e condição de vitória
 ├── state/
-│   ├── useSudokuGame.ts       # Hook principal de estado do jogo
-│   └── useGameSettings.ts     # Hook de preferências com persistência
+│   ├── useSudokuGame.ts           # Hook principal de estado do jogo
+│   └── useGameSettings.ts         # Hook de preferências com persistência
 ├── components/
-│   ├── SudokuBoard.tsx        # Grade 9×9 com blocos 3×3
-│   ├── SudokuCell.tsx         # Célula individual com mini-grade e destaque de candidatos
-│   ├── NumberKeypad.tsx       # Teclado 1–9 com duplo-clique
-│   ├── ActionToolbar.tsx      # Barra de ações (desfazer, borracha, lápis, dica, etc.)
-│   ├── DifficultySelector.tsx # Seletor de dificuldade
-│   ├── StatsBar.tsx           # Cronômetro, erros, modo de entrada
-│   ├── SettingsModal.tsx      # Modal de configurações
-│   ├── VictoryModal.tsx       # Modal de vitória com confete
-│   ├── Header.tsx             # Cabeçalho com ações globais e botão de tutorial
-│   └── tutorial/              # Módulo de tutorial interativo com animações
+│   ├── SudokuBoard.tsx            # Grade 9×9 com blocos 3×3
+│   ├── SudokuCell.tsx             # Célula individual com mini-grade e destaque de candidatos
+│   ├── NumberKeypad.tsx           # Teclado 1–9 com duplo-clique
+│   ├── ActionToolbar.tsx          # Barra de ações (desfazer, borracha, lápis, dica, etc.)
+│   ├── DifficultySelector.tsx     # Seletor de dificuldade
+│   ├── DifficultyConfirmModal.tsx # Modal de confirmação ao trocar de desafio em andamento
+│   ├── StatsBar.tsx               # Cronômetro, erros, modo de entrada
+│   ├── SettingsModal.tsx          # Modal de configurações
+│   ├── VictoryModal.tsx           # Modal de vitória com confete
+│   ├── Header.tsx                 # Cabeçalho com ações globais e botão de tutorial
+│   └── tutorial/                  # Módulo de tutorial interativo com animações
 │       ├── TutorialModal.tsx
 │       ├── TutorialRulesView.tsx
 │       ├── TutorialCrossHatchView.tsx
 │       ├── TutorialNotesView.tsx
 │       └── TutorialTipsView.tsx
 ├── utils/
-│   ├── formatters.ts          # Formatadores de tempo e dados
-│   ├── keyboardShortcuts.ts   # Hook de atalhos de teclado para PC
-│   └── tutorialHelpers.ts     # Lógica pura de navegação e demonstração do tutorial
+│   ├── keyboardShortcuts.ts       # Hook de atalhos de teclado para PC
+│   └── tutorialHelpers.ts         # Lógica pura de navegação e demonstração do tutorial
 ├── App.tsx
 └── main.tsx
 tests/
+├── autoFillEngine.test.ts
 ├── boardGenerator.test.ts
 ├── boardSolver.test.ts
 ├── candidateEvaluator.test.ts
+├── gameEngine.test.ts
 ├── tutorialHelpers.test.ts
 └── validator.test.ts
-iniciar-sudolu.bat             # Inicializador rápido para Windows (servidor + navegador padrão)
-create-shortcut.ps1            # Script de criação do atalho na Área de Trabalho (suporta OneDrive)
-sudolu.ico                     # Ícone do aplicativo para Windows
+iniciar-sudolu.bat                 # Inicializador rápido para Windows (servidor + navegador padrão)
+create-shortcut.ps1                # Script de criação do atalho na Área de Trabalho (suporta OneDrive)
+sudolu.ico                         # Ícone do aplicativo para Windows
 ```
 
 ---
@@ -182,19 +190,19 @@ npm run preview
 
 ## 🧪 Testes
 
-O projeto conta com **35 testes unitários** automatizados com Vitest:
+O projeto conta com **37 testes unitários** automatizados com Vitest:
 
 ```
 ✓ tests/boardSolver.test.ts        (4 testes)
 ✓ tests/boardGenerator.test.ts     (3 testes)
-✓ tests/gameEngine.test.ts         (12 testes)
+✓ tests/gameEngine.test.ts         (13 testes)
 ✓ tests/candidateEvaluator.test.ts (4 testes)
-✓ tests/validator.test.ts          (5 testes)
-✓ tests/formatters.test.ts         (4 testes)
-✓ tests/keyboardShortcuts.test.ts  (3 testes)
+✓ tests/tutorialHelpers.test.ts    (5 testes)
+✓ tests/autoFillEngine.test.ts     (5 testes)
+✓ tests/validator.test.ts          (3 testes)
 
 Test Files  7 passed (7)
-     Tests  35 passed (35)
+     Tests  37 passed (37)
 ```
 
 ---
