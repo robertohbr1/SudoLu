@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { CellCoordinate, SudokuDigit } from '../types/sudoku.types';
 
 interface KeyboardBindings {
+  readonly isDisabled?: boolean;
   readonly selectedCell: CellCoordinate | null;
   readonly onSelectCell: (coord: CellCoordinate) => void;
   readonly onDigitInput: (digit: SudokuDigit) => void;
@@ -26,6 +27,8 @@ function computeArrowNavigation(
 export function useKeyboardShortcuts(bindings: KeyboardBindings) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (bindings.isDisabled) return;
+
       // Ignore if user is inside an input field
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((event.target as HTMLElement)?.tagName)) {
         return;

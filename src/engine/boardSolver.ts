@@ -1,10 +1,16 @@
 import { CellValue, RawNumericMatrix, SudokuDigit } from '../types/sudoku.types';
 import { computeCellCandidates } from './candidateEvaluator';
+import { findConflictCells } from './validator';
 
 export type MutableMatrix = CellValue[][];
 
 /**
  * Creates a deep copy of a 9x9 matrix.
+ *
+ * @example
+ * ```ts
+ * const copy = cloneNumericMatrix(grid);
+ * ```
  */
 export function cloneNumericMatrix(grid: RawNumericMatrix): MutableMatrix {
   return grid.map((row) => [...row]);
@@ -63,6 +69,7 @@ function backtrackSolver(grid: MutableMatrix): boolean {
  * ```
  */
 export function solveSudokuPuzzle(grid: RawNumericMatrix): RawNumericMatrix | null {
+  if (findConflictCells(grid).size > 0) return null;
   const copy = cloneNumericMatrix(grid);
   const success = backtrackSolver(copy);
   return success ? copy : null;
@@ -97,6 +104,7 @@ function backtrackCounter(grid: MutableMatrix, limit: number, currentCount: { to
  * ```
  */
 export function countSudokuSolutions(grid: RawNumericMatrix, maxLimit = 2): number {
+  if (findConflictCells(grid).size > 0) return 0;
   const copy = cloneNumericMatrix(grid);
   const counter = { total: 0 };
   backtrackCounter(copy, maxLimit, counter);

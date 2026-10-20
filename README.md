@@ -7,7 +7,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?style=flat-square&logo=typescript)
 ![Vite](https://img.shields.io/badge/Vite-6-646CFF?style=flat-square&logo=vite)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38BDF8?style=flat-square&logo=tailwindcss)
-![Vitest](https://img.shields.io/badge/Vitest-37%20testes-6E9F18?style=flat-square&logo=vitest)
+![Vitest](https://img.shields.io/badge/Vitest-45%20testes-6E9F18?style=flat-square&logo=vitest)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 **Uma experiência de Sudoku completa para PC — com geração de puzzles, candidatos automáticos, anotações manuais, atalhos de teclado, tema escuro e muito mais.**
@@ -23,12 +23,12 @@
 ### 🎯 Seleção de Dificuldade
 - **4 níveis**: Fácil (38–42 dicas), Médio (32–36), Difícil (27–31) e Especialista (23–26).
 - Gerador algorítmico com **backtracking + heurística MRV** que garante **solução única** para cada puzzle.
-- **Validação e Proteção de Partida**: Se o desafio já estiver iniciado (com números informados pelo jogador) e não estiver totalmente resolvido, o sistema solicita confirmação antes de trocar de desafio para prevenir a perda acidental da solução atual.
+- **Validação e Proteção de Partida**: Se o desafio já estiver iniciado (com números ou anotações informados pelo jogador) e não estiver totalmente resolvido, o sistema solicita confirmação antes de trocar de desafio ou iniciar um novo jogo para prevenir a perda acidental da partida atual.
 
 ### 🎓 Aprenda a Jogar (Tutorial Interativo com Animações)
 O SudoLu conta com um assistente visual completo para ensinar as regras e estratégias do jogo:
 - **Regras Fundamentais Animadas**: Demonstração visual interativa das regras de Linhas, Colunas e Blocos 3×3.
-- **Estratégia de Varredura por Dígito (1 ao 9)**: Simulação animada do método de varredura cruzada (*cross-hatching*), onde um número (ex: 1) emite feixes pelas linhas e colunas bloqueando opções até sobrar apenas uma célula em um bloco 3×3. Ao resolver, o ciclo avança do 1 ao 9 e reinicia.
+- **Estratégia de Varredura por Dígito (1 ao 9)**: Simulação animada do método de varredura cruzada (*cross-hatching*), onde um número (do 1 ao 9) emite feixes pelas linhas e colunas bloqueando opções até sobrar apenas uma célula em um bloco 3×3. Ao resolver, o ciclo avança de 1 a 9 ou permite selecionar qualquer dígito diretamente.
 - **Técnica das Anotações (Modo Lápis)**: Demonstração de eliminação de candidatos quando a varredura visual direta não é suficiente. Mostra em tempo real como o preenchimento de uma casa vizinha elimina notas até revelar um candidato único (*naked single*).
 - **Dicas e Atalhos Práticos**: Guia de uso com o Modo Dígito Primeiro, Duplo-Clique para auto-preenchimento, Auto-Notas e atalhos de teclado.
 
@@ -37,29 +37,30 @@ O SudoLu conta com um assistente visual completo para ensinar as regras e estrat
 |------|-----------|
 | **Auto-Candidatos** | Exibe em tempo real todos os números matematicamente válidos em cada célula vazia |
 | **Anotações Manuais (Lápis)** | Adicione ou remova candidatos individualmente com o Modo Lápis |
-| **Auto-Notas** | Preenche automaticamente todas as células vazias com seus candidatos válidos em um clique |
+| **Auto-Notas** | Preenche automaticamente todas as células vazias com seus candidatos válidos em um clique (totalmente reversível via Desfazer) |
 | **Alto Contraste e Legibilidade** | Tipografia encorpada e cores calibradas para visualização cristalina no fundo branco e modo escuro, mantendo as anotações visíveis mesmo com filtro ativo |
 | **Destaque Dinâmico de Candidatos** | Ao selecionar um número no teclado ou tabuleiro, ele e suas ocorrências nas auto-notas recebem badges circulares azuis destacados |
-| **Destaque Visual de Nota Única** | Células com apenas 1 candidato restante recebem um badge verde esmeralda de alto contraste para localização visual instantânea |
-| **Duplo-Clique no Dígito** | Preenche todas as células onde aquele número é o **único candidato possível** |
-| **Auto-Preenchimento em Cascata** | Resolução automática e em cadeia quando resta apenas uma anotação visível (*naked single*), ativável via checkbox na barra superior ou configurações |
+| **Destaque Visual de Nota Única** | Células com apenas 1 candidato restante recebem um destaque verde esmeralda de alto contraste para localização visual instantânea |
+| **Duplo-Clique no Dígito** | Preenche todas as células onde aquele número é o **único candidato possível** (automático ou manual) |
+| **Auto-Preenchimento em Cascata** | Resolução automática e em cadeia quando resta apenas uma anotação visível (*naked single*), registrada atomicamente junto à jogada para permitir desfazer (`Ctrl+Z`) com perfeição |
 
 ### 🖱️ Modos de Entrada
 | Modo | Comportamento |
 |------|---------------|
-| **Célula Primeiro** *(padrão)* | Selecione uma célula → insira o dígito pelo teclado ou keypad |
-| **Dígito Primeiro** | Selecione um número (1–9) → clique nas células para preencher rapidamente |
+| **Dígito Primeiro** *(padrão)* | Selecione um número (1–9) → clique nas células para preencher rapidamente em série, sem manter células selecionadas |
+| **Célula Primeiro** | Selecione uma célula → insira o dígito pelo teclado ou keypad |
 
 ### ⌨️ Atalhos de Teclado para PC
 | Tecla | Ação |
 |-------|------|
-| `1`–`9` / Numpad | Inserir dígito |
-| `Backspace` / `Delete` / `0` | Apagar célula ou anotações |
-| `↑` `↓` `←` `→` | Navegar entre células |
+| `1`–`9` / Numpad | Selecionar ou inserir dígito |
+| `Backspace` / `Delete` / `0` | Apagar célula/anotações ou alternar modo Borracha |
+| `↑` `↓` `←` `→` | Navegar entre células (no modo Célula Primeiro) |
 | `N` ou `P` | Alternar modo Lápis (anotações) |
-| `Ctrl+Z` | Desfazer jogada |
+| `Ctrl+Z` | Desfazer jogada (inclui cascatas e operações em lote) |
 | `Ctrl+Y` / `Ctrl+Shift+Z` | Refazer jogada |
 | `H` | Dica inteligente |
+| `Esc` | Fechar janelas modais |
 
 ### 🛠️ Configurações Personalizáveis
 - ✅ Exibição automática de candidatos (auto-candidatos)
@@ -73,11 +74,11 @@ O SudoLu conta com um assistente visual completo para ensinar as regras e estrat
 - ✅ Preferências salvas no `localStorage`
 
 ### 🏆 Outros Recursos
-- Cronômetro e contador de erros
-- Desfazer / Refazer com suporte a **operações em lote** (um único Ctrl+Z desfaz o duplo-clique)
-- **Dica Inteligente**: revela o valor da célula selecionada ou encontra a célula com erro/vazia automaticamente
-- **Apagar Abrangente**: remove dígitos e anotações, além de modo Borracha visual ao clicar sem célula selecionada
-- Modal de vitória com animação de confete (canvas-confetti)
+- Cronômetro e contador de erros (com detecção de conflitos em tempo real)
+- Desfazer / Refazer com suporte atômico a **operações em lote e cascatas** (`moveComposer`)
+- **Dica Inteligente**: revela o valor da célula selecionada ou corrige erros / preenche células vazias automaticamente
+- **Apagar Abrangente**: remove dígitos e anotações manuais, além de modo Borracha visual ativo para apagar células clicando nelas
+- Modal de vitória com animação de confete (`canvas-confetti`) e opção de inspecionar o tabuleiro concluído
 - Interface totalmente responsiva
 
 ---
@@ -93,9 +94,10 @@ src/
 ├── engine/
 │   ├── autoFillEngine.ts          # Motor de preenchimento em cascata de candidatos únicos
 │   ├── boardGenerator.ts          # Gerador de puzzles por dificuldade
-│   ├── boardSolver.ts             # Resolvedor com backtracking + MRV
+│   ├── boardSolver.ts             # Resolvedor com backtracking + MRV e validação de conflitos
 │   ├── candidateEvaluator.ts      # Cálculo de candidatos válidos por célula
 │   ├── gameEngine.ts              # Lógica do jogo (movimentos, apagar, dicas, validações)
+│   ├── moveComposer.ts            # Composição atômica de jogadas + cascatas para Undo/Redo
 │   └── validator.ts               # Detecção de conflitos e condição de vitória
 ├── state/
 │   ├── useSudokuGame.ts           # Hook principal de estado do jogo
@@ -103,7 +105,7 @@ src/
 ├── components/
 │   ├── SudokuBoard.tsx            # Grade 9×9 com blocos 3×3
 │   ├── SudokuCell.tsx             # Célula individual com mini-grade e destaque de candidatos
-│   ├── NumberKeypad.tsx           # Teclado 1–9 com duplo-clique
+│   ├── NumberKeypad.tsx           # Teclado 1–9 com status de conclusão e duplo-clique
 │   ├── ActionToolbar.tsx          # Barra de ações (desfazer, borracha, lápis, dica, etc.)
 │   ├── DifficultySelector.tsx     # Seletor de dificuldade
 │   ├── DifficultyConfirmModal.tsx # Modal de confirmação ao trocar de desafio em andamento
@@ -128,6 +130,7 @@ tests/
 ├── boardSolver.test.ts
 ├── candidateEvaluator.test.ts
 ├── gameEngine.test.ts
+├── moveComposer.test.ts
 ├── tutorialHelpers.test.ts
 └── validator.test.ts
 iniciar-sudolu.bat                 # Inicializador rápido para Windows (servidor + navegador padrão)
@@ -190,19 +193,20 @@ npm run preview
 
 ## 🧪 Testes
 
-O projeto conta com **37 testes unitários** automatizados com Vitest:
+O projeto conta com **45 testes unitários** automatizados com Vitest:
 
 ```
-✓ tests/boardSolver.test.ts        (4 testes)
+✓ tests/boardSolver.test.ts        (5 testes)
 ✓ tests/boardGenerator.test.ts     (3 testes)
 ✓ tests/gameEngine.test.ts         (13 testes)
-✓ tests/candidateEvaluator.test.ts (4 testes)
+✓ tests/moveComposer.test.ts       (6 testes)
+✓ tests/autoFillEngine.test.ts     (6 testes)
 ✓ tests/tutorialHelpers.test.ts    (5 testes)
-✓ tests/autoFillEngine.test.ts     (5 testes)
+✓ tests/candidateEvaluator.test.ts (4 testes)
 ✓ tests/validator.test.ts          (3 testes)
 
-Test Files  7 passed (7)
-     Tests  37 passed (37)
+Test Files  8 passed (8)
+     Tests  45 passed (45)
 ```
 
 ---

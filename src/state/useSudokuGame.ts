@@ -1,9 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   CellValue,
   DifficultyLevel,
-  RawNumericMatrix,
-  SingleCellChange,
   SudokuCellModel,
   SudokuDigit,
   SudokuPuzzlePackage,
@@ -12,98 +10,37 @@ import {
 } from '../types/sudoku.types';
 import { GamePreferenceSettings } from '../types/settings.types';
 import { generateSudokuPuzzle } from '../engine/boardGenerator';
-import { computeCellCandidates } from '../engine/candidateEvaluator';
-import { findConflictCells, isBoardCompletedSuccessfully } from '../engine/validator';
+import { isBoardCompletedSuccessfully } from '../engine/validator';
+import {
+  createInitialCellMatrix,
+  extractRawMatrix,
+  findTargetHintCell,
+  applySingleCandidateAutoFill,
+  applyCellValueChange,
+  applyCellErase,
+  applyCandidateToggle,
+  applyUndoMove,
+  applyRedoMove,
+  cloneBoardMatrix,
+} from '../engine/gameEngine';
+import {
+  ComposedMove,
+  composeMoveWithCascade,
+  composeFillAllNotesMove,
+  composeClearAllNotesMove,
+} from '../engine/moveComposer';
 
-/**
- * Builds the initial reactive cell matrix from raw puzzle data.
- */
-function createInitialCellMatrix(puzzle: SudokuPuzzlePackage): SudokuCellModel[][] {
-  const matrix: SudokuCellModel[][] = [];
-
-  for (let r = 0; r < 9; r++) {
-    const rowCells: SudokuCellModel[] = [];
-    for (let c = 0; c < 9; c++) {
-      const val = puzzle.initialGrid[r][c];
-      const isGiven = val !== 0;
-      const autoCands = isGiven ? new Set<SudokuDigit>() : computeCellCandidates(puzzle.initialGrid, r, c);
-
-      rowCells.push({
-        row: r,
-        col: c,
-        initialValue: val,
-        currentValue: val,
-        isGiven,
-        manualCandidates: new Set<SudokuDigit>(),
-        autoCandidates: autoCands,
-        isInvalid: false,
-      });
-    }
-    matrix.push(rowCells);
+function countBatchMistakes(
+  changes: GameMoveRecord['changes'],
+  solutionGrid: SudokuPuzzlePackage['solutionGrid']
+): number {
+  let mistakes = 0;
+  for (const change of changes) {
+    if (change.nextValue === 0 || change.nextValue === change.previousValue) continue;
+    const expected = solutionGrid[change.coordinate.row][change.coordinate.col];
+    if (change.nextValue !== expected) mistakes += 1;
   }
-  return matrix;
-}
-
-/**
- * Extracts raw 2D numeric values from current cell model matrix.
- */
-export function extractRawMatrix(matrix: readonly (readonly SudokuCellModel[])[]): RawNumericMatrix {
-  return matrix.map((row) => row.map((cell) => cell.currentValue));
-}
-
-function removeCandidateFromCell(cell: SudokuCellModel, digit: SudokuDigit): SudokuCellModel {
-  if (!cell.manualCandidates.has(digit)) return cell;
-  const nextSet = new Set(cell.manualCandidates);
-  nextSet.delete(digit);
-  return { ...cell, manualCandidates: nextSet };
-}
-
-/**
- * Removes placed digit from candidates in peer cells (row, column, box).
- */
-function cleanPeerCandidates(
-  matrix: SudokuCellModel[][],
-  row: number,
-  col: number,
-  digit: SudokuDigit
-): void {
-  const boxR = Math.floor(row / 3) * 3;
-  const boxC = Math.floor(col / 3) * 3;
-
-  for (let i = 0; i < 9; i++) {
-    matrix[row][i] = removeCandidateFromCell(matrix[row][i], digit);
-    matrix[i][col] = removeCandidateFromCell(matrix[i][col], digit);
-  }
-  for (let r = boxR; r < boxR + 3; r++) {
-    for (let c = boxC; c < boxC + 3; c++) {
-      matrix[r][c] = removeCandidateFromCell(matrix[r][c], digit);
-    }
-  }
-}
-
-/**
- * Recalculates auto-candidates and validation states for all cells.
- */
-function refreshMatrixDerivations(matrix: SudokuCellModel[][]): void {
-  const raw = extractRawMatrix(matrix);
-  const conflicts = findConflictCells(raw);
-
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      const cell = matrix[r][c];
-      const key = `${r},${c}`;
-      const isInvalid = conflicts.has(key);
-      const autoCandidates = cell.currentValue === 0
-        ? computeCellCandidates(raw, r, c)
-        : new Set<SudokuDigit>();
-
-      matrix[r][c] = {
-        ...cell,
-        isInvalid,
-        autoCandidates,
-      };
-    }
-  }
+  return mistakes;
 }
 
 export function useSudokuGame(settings: GamePreferenceSettings) {
@@ -117,11 +54,22 @@ export function useSudokuGame(settings: GamePreferenceSettings) {
   const [selectedCell, setSelectedCell] = useState<CellCoordinate | null>(null);
   const [selectedDigit, setSelectedDigit] = useState<SudokuDigit | null>(null);
   const [isPencilMode, setIsPencilMode] = useState<boolean>(false);
+  const [isEraserMode, setIsEraserMode] = useState<boolean>(false);
   const [history, setHistory] = useState<GameMoveRecord[]>([]);
   const [redoHistory, setRedoHistory] = useState<GameMoveRecord[]>([]);
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
   const [isWon, setIsWon] = useState<boolean>(false);
   const [mistakesCount, setMistakesCount] = useState<number>(0);
+  // Bumped on new game / restart so the auto-fill effect runs on fresh boards
+  // without having to depend on `board` itself (see effect below).
+  const [boardEpoch, setBoardEpoch] = useState<number>(0);
+  const boardRef = useRef<SudokuCellModel[][]>(board);
+
+  const cascadeSettings = {
+    autoFillSingleCandidate: settings.autoFillSingleCandidate,
+    autoEraseCandidatesOnInput: settings.autoEraseCandidatesOnInput,
+    showAutoCandidates: settings.showAutoCandidates,
+  };
 
   // Timer interval
   useEffect(() => {
@@ -132,149 +80,189 @@ export function useSudokuGame(settings: GamePreferenceSettings) {
     return () => clearInterval(interval);
   }, [isWon]);
 
-  // Start new game
-  const startNewGame = useCallback((level: DifficultyLevel) => {
-    const pkg = generateSudokuPuzzle(level);
-    setDifficulty(level);
-    setPuzzlePackage(pkg);
-    setBoard(createInitialCellMatrix(pkg));
+  // Keeps the ref in sync for the auto-fill effect (declared before it on purpose).
+  useEffect(() => {
+    boardRef.current = board;
+  }, [board]);
+
+  // In digit-first mode, no cell should remain selected.
+  useEffect(() => {
+    if (settings.entryMode === 'digit-first') {
+      setSelectedCell(null);
+    }
+  }, [settings.entryMode]);
+
+  /**
+   * Single entry point for every board mutation that must be undoable:
+   * pushes ONE history record (player action + automatic consequences).
+   */
+  const commitMove = useCallback(
+    (composed: ComposedMove) => {
+      const record = composed.moveRecord;
+      if (!record) return;
+      // Updated eagerly so a re-run before re-render never works on a stale board.
+      boardRef.current = composed.nextBoard;
+      setHistory((prev) => [...prev, record]);
+      setRedoHistory([]);
+      setBoard(composed.nextBoard);
+      const raw = extractRawMatrix(composed.nextBoard);
+      if (isBoardCompletedSuccessfully(raw, puzzlePackage.solutionGrid)) setIsWon(true);
+    },
+    [puzzlePackage.solutionGrid]
+  );
+
+  const resetToPuzzle = useCallback((pkg: SudokuPuzzlePackage) => {
+    const initialBoard = createInitialCellMatrix(pkg);
+    boardRef.current = initialBoard;
+    setBoard(initialBoard);
     setSelectedCell(null);
     setSelectedDigit(null);
+    setIsEraserMode(false);
     setHistory([]);
     setRedoHistory([]);
     setTimerSeconds(0);
     setIsWon(false);
     setMistakesCount(0);
+    setBoardEpoch((prev) => prev + 1);
   }, []);
+
+  // Start new game
+  const startNewGame = useCallback(
+    (level: DifficultyLevel) => {
+      const pkg = generateSudokuPuzzle(level);
+      setDifficulty(level);
+      setPuzzlePackage(pkg);
+      resetToPuzzle(pkg);
+    },
+    [resetToPuzzle]
+  );
 
   // Restart current game
   const restartCurrentGame = useCallback(() => {
-    setBoard(createInitialCellMatrix(puzzlePackage));
-    setSelectedCell(null);
-    setSelectedDigit(null);
-    setHistory([]);
-    setRedoHistory([]);
-    setTimerSeconds(0);
-    setIsWon(false);
-    setMistakesCount(0);
-  }, [puzzlePackage]);
+    resetToPuzzle(puzzlePackage);
+  }, [puzzlePackage, resetToPuzzle]);
 
   // Modifies a candidate number in cell
   const toggleCandidateInCell = useCallback(
     (row: number, col: number, digit: SudokuDigit) => {
-      const cell = board[row][col];
-      if (cell.isGiven || cell.currentValue !== 0) return;
-
-      const nextCandidates = new Set(cell.manualCandidates);
-      if (nextCandidates.has(digit)) {
-        nextCandidates.delete(digit);
-      } else {
-        nextCandidates.add(digit);
+      if (isWon) return;
+      const toggled = applyCandidateToggle(board, row, col, digit);
+      if (!toggled) return;
+      // Removing a note may leave a single candidate; its auto-fill joins this record.
+      const composed = composeMoveWithCascade(
+        toggled.nextBoard,
+        toggled.moveRecord.changes,
+        cascadeSettings
+      );
+      if (composed.moveRecord) {
+        const cascadeMistakes = countBatchMistakes(
+          composed.moveRecord.changes,
+          puzzlePackage.solutionGrid
+        );
+        if (cascadeMistakes > 0) setMistakesCount((prev) => prev + cascadeMistakes);
       }
-
-      setHistory((prev) => [
-        ...prev,
-        {
-          changes: [{
-            coordinate: { row, col },
-            previousValue: cell.currentValue,
-            nextValue: cell.currentValue,
-            previousCandidates: new Set(cell.manualCandidates),
-            nextCandidates,
-          }],
-        },
-      ]);
-      setRedoHistory([]);
-
-      setBoard((prev) => {
-        const next = prev.map((r) => [...r]);
-        next[row][col] = { ...cell, manualCandidates: nextCandidates };
-        return next;
-      });
+      commitMove(composed);
     },
-    [board]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [board, isWon, puzzlePackage.solutionGrid, commitMove, settings]
   );
 
   // Sets value on cell
   const setCellValue = useCallback(
     (row: number, col: number, digit: CellValue) => {
+      if (isWon) return;
       const cell = board[row][col];
       if (cell.isGiven || cell.currentValue === digit) return;
 
-      const expectedVal = puzzlePackage.solutionGrid[row][col];
-      if (digit !== 0 && digit !== expectedVal) {
-        setMistakesCount((prev) => prev + 1);
+      const placed = applyCellValueChange(
+        board,
+        row,
+        col,
+        digit,
+        settings.autoEraseCandidatesOnInput
+      );
+      const composed = composeMoveWithCascade(
+        placed.nextBoard,
+        placed.moveRecord.changes,
+        cascadeSettings
+      );
+      if (composed.moveRecord) {
+        const batchMistakes = countBatchMistakes(
+          composed.moveRecord.changes,
+          puzzlePackage.solutionGrid
+        );
+        if (batchMistakes > 0) setMistakesCount((prev) => prev + batchMistakes);
       }
-
-      setHistory((prev) => [
-        ...prev,
-        {
-          changes: [{
-            coordinate: { row, col },
-            previousValue: cell.currentValue,
-            nextValue: digit,
-            previousCandidates: new Set(cell.manualCandidates),
-            nextCandidates: new Set(),
-          }],
-        },
-      ]);
-      setRedoHistory([]);
-
-      setBoard((prev) => {
-        const next = prev.map((r) => [...r]);
-        next[row][col] = {
-          ...cell,
-          currentValue: digit,
-          manualCandidates: new Set(),
-        };
-
-        if (digit !== 0 && settings.autoEraseCandidatesOnInput) {
-          cleanPeerCandidates(next, row, col, digit as SudokuDigit);
-        }
-
-        refreshMatrixDerivations(next);
-
-        const currentRaw = extractRawMatrix(next);
-        if (isBoardCompletedSuccessfully(currentRaw, puzzlePackage.solutionGrid)) {
-          setIsWon(true);
-        }
-
-        return next;
-      });
+      commitMove(composed);
     },
-    [board, puzzlePackage, settings.autoEraseCandidatesOnInput]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [board, isWon, puzzlePackage.solutionGrid, commitMove, settings]
+  );
+
+  // Erase specific cell (digit or manual notes)
+  const eraseCellAt = useCallback(
+    (row: number, col: number) => {
+      if (isWon) return;
+      const erased = applyCellErase(board, row, col);
+      if (!erased) return;
+      commitMove({ nextBoard: erased.nextBoard, moveRecord: erased.moveRecord });
+    },
+    [board, isWon, commitMove]
   );
 
   // Handles clicking a cell
   const handleCellClick = useCallback(
     (row: number, col: number) => {
-      // In digit-first mode with a digit pre-selected: fill and deselect.
-      // Deselecting prevents the next digit-keypad click from overwriting this cell.
-      if (settings.entryMode === 'digit-first' && selectedDigit !== null) {
+      if (isWon) return;
+
+      if (isEraserMode) {
+        eraseCellAt(row, col);
+        setSelectedCell(settings.entryMode === 'digit-first' ? null : { row, col });
+        return;
+      }
+
+      // In digit-first mode: never keep a cell selected.
+      if (settings.entryMode === 'digit-first') {
         setSelectedCell(null);
-        if (isPencilMode && settings.allowManualCandidateEdit) {
-          toggleCandidateInCell(row, col, selectedDigit);
-        } else {
-          setCellValue(row, col, selectedDigit);
+        if (selectedDigit !== null) {
+          if (isPencilMode && settings.allowManualCandidateEdit) {
+            toggleCandidateInCell(row, col, selectedDigit);
+          } else {
+            setCellValue(row, col, selectedDigit);
+          }
         }
         return;
       }
 
-      // Cell-first mode (or no digit pre-selected): just select the cell.
+      // Cell-first mode: select the cell.
       setSelectedCell({ row, col });
     },
-    [settings.entryMode, settings.allowManualCandidateEdit, selectedDigit, isPencilMode, toggleCandidateInCell, setCellValue]
+    [
+      isWon,
+      isEraserMode,
+      eraseCellAt,
+      settings.entryMode,
+      settings.allowManualCandidateEdit,
+      selectedDigit,
+      isPencilMode,
+      toggleCandidateInCell,
+      setCellValue,
+    ]
   );
 
-  // Handles digit selection from keypad or keyboard
+  // Handles digit selection from keypad
   const handleDigitInput = useCallback(
     (digit: SudokuDigit) => {
+      if (isWon) return;
+      setIsEraserMode(false);
+
+      if (settings.entryMode === 'digit-first') {
+        setSelectedCell(null);
+        setSelectedDigit((prev) => (prev === digit ? null : digit));
+        return;
+      }
+
       setSelectedDigit(digit);
-
-      // In digit-first mode the digit is just pre-selected; cell clicks do the writing.
-      // In cell-first mode (or when triggered by keyboard on a selected cell) we write immediately.
-      if (settings.entryMode === 'digit-first') return;
-
       if (selectedCell) {
         if (isPencilMode && settings.allowManualCandidateEdit) {
           toggleCandidateInCell(selectedCell.row, selectedCell.col, digit);
@@ -283,111 +271,133 @@ export function useSudokuGame(settings: GamePreferenceSettings) {
         }
       }
     },
-    [settings.entryMode, selectedCell, isPencilMode, settings.allowManualCandidateEdit, toggleCandidateInCell, setCellValue]
+    [
+      isWon,
+      settings.entryMode,
+      selectedCell,
+      isPencilMode,
+      settings.allowManualCandidateEdit,
+      toggleCandidateInCell,
+      setCellValue,
+    ]
   );
 
-  // Erase current selected cell
+  // Handles physical keyboard digit input
+  const handleKeyboardDigitInput = useCallback(
+    (digit: SudokuDigit) => {
+      if (isWon) return;
+      setIsEraserMode(false);
+
+      if (settings.entryMode === 'digit-first') {
+        setSelectedCell(null);
+        setSelectedDigit((prev) => (prev === digit ? null : digit));
+        return;
+      }
+
+      setSelectedDigit(digit);
+      if (selectedCell) {
+        if (isPencilMode && settings.allowManualCandidateEdit) {
+          toggleCandidateInCell(selectedCell.row, selectedCell.col, digit);
+        } else {
+          setCellValue(selectedCell.row, selectedCell.col, digit);
+        }
+      }
+    },
+    [
+      isWon,
+      settings.entryMode,
+      selectedCell,
+      isPencilMode,
+      settings.allowManualCandidateEdit,
+      toggleCandidateInCell,
+      setCellValue,
+    ]
+  );
+
+  // Erase current selected cell or toggle eraser mode
   const handleErase = useCallback(() => {
-    if (!selectedCell) return;
-    setCellValue(selectedCell.row, selectedCell.col, 0);
-  }, [selectedCell, setCellValue]);
+    if (isWon) return;
+    if (settings.entryMode === 'cell-first' && selectedCell) {
+      eraseCellAt(selectedCell.row, selectedCell.col);
+      setIsEraserMode(false);
+      return;
+    }
+    setSelectedCell(null);
+    setSelectedDigit(null);
+    setIsEraserMode((prev) => !prev);
+  }, [isWon, settings.entryMode, selectedCell, eraseCellAt]);
 
-  // Provide hint for selected cell
+  // Provide hint for selected cell or optimal target cell
   const handleHint = useCallback(() => {
-    if (!selectedCell) return;
-    const { row, col } = selectedCell;
-    if (board[row][col].isGiven) return;
-    const correctValue = puzzlePackage.solutionGrid[row][col];
-    setCellValue(row, col, correctValue);
-  }, [selectedCell, board, puzzlePackage, setCellValue]);
+    if (isWon) return;
+    const target = findTargetHintCell(board, puzzlePackage.solutionGrid, selectedCell);
+    if (!target) return;
+    setIsEraserMode(false);
+    setSelectedCell(settings.entryMode === 'digit-first' ? null : target);
+    const correctValue = puzzlePackage.solutionGrid[target.row][target.col] as SudokuDigit;
+    setCellValue(target.row, target.col, correctValue);
+  }, [isWon, settings.entryMode, selectedCell, board, puzzlePackage, setCellValue]);
 
-  // Undo move (reverts all cells in the batch record atomically)
+  // Undo move (reverts all cells in the batch record atomically, newest change first)
   const handleUndo = useCallback(() => {
     if (history.length === 0) return;
     const lastMove = history[history.length - 1];
+    const undoneBoard = applyUndoMove(board, lastMove);
 
+    boardRef.current = undoneBoard;
     setHistory((prev) => prev.slice(0, -1));
     setRedoHistory((prev) => [...prev, lastMove]);
+    setBoard(undoneBoard);
+    // Undoing a winning move must reopen the game.
+    setIsWon(false);
 
-    setBoard((prev) => {
-      const next = prev.map((r) => [...r]);
-      for (const change of lastMove.changes) {
-        const { row, col } = change.coordinate;
-        next[row][col] = {
-          ...next[row][col],
-          currentValue: change.previousValue,
-          manualCandidates: new Set(change.previousCandidates),
-        };
-      }
-      refreshMatrixDerivations(next);
-      return next;
-    });
-
-    // Focus the first affected cell so the user has visual feedback
-    const first = lastMove.changes[0];
-    if (first) setSelectedCell({ ...first.coordinate });
-  }, [history]);
+    if (settings.entryMode === 'digit-first') {
+      setSelectedCell(null);
+    } else {
+      const first = lastMove.changes[0];
+      if (first) setSelectedCell({ ...first.coordinate });
+    }
+  }, [board, history, settings.entryMode]);
 
   // Redo move (re-applies all cells in the batch record atomically)
   const handleRedo = useCallback(() => {
     if (redoHistory.length === 0) return;
     const nextMove = redoHistory[redoHistory.length - 1];
+    const redoneBoard = applyRedoMove(board, nextMove);
 
+    boardRef.current = redoneBoard;
     setRedoHistory((prev) => prev.slice(0, -1));
     setHistory((prev) => [...prev, nextMove]);
+    setBoard(redoneBoard);
 
-    setBoard((prev) => {
-      const next = prev.map((r) => [...r]);
-      for (const change of nextMove.changes) {
-        const { row, col } = change.coordinate;
-        next[row][col] = {
-          ...next[row][col],
-          currentValue: change.nextValue,
-          manualCandidates: new Set(change.nextCandidates),
-        };
-      }
-      refreshMatrixDerivations(next);
-      return next;
-    });
+    const raw = extractRawMatrix(redoneBoard);
+    if (isBoardCompletedSuccessfully(raw, puzzlePackage.solutionGrid)) {
+      setIsWon(true);
+    }
 
-    const first = nextMove.changes[0];
-    if (first) setSelectedCell({ ...first.coordinate });
-  }, [redoHistory]);
+    if (settings.entryMode === 'digit-first') {
+      setSelectedCell(null);
+    } else {
+      const first = nextMove.changes[0];
+      if (first) setSelectedCell({ ...first.coordinate });
+    }
+  }, [board, redoHistory, puzzlePackage.solutionGrid, settings.entryMode]);
 
-  // Auto-fill all manual candidates with calculated possibilities
+  // Auto-fill all manual candidates with calculated possibilities (undoable)
   const handleFillAllCandidates = useCallback(() => {
-    setBoard((prev) => {
-      const next = prev.map((r) => [...r]);
-      const raw = extractRawMatrix(next);
+    if (isWon) return;
+    commitMove(composeFillAllNotesMove(board, cascadeSettings));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board, isWon, commitMove, settings]);
 
-      for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-          if (next[r][c].currentValue === 0) {
-            next[r][c] = {
-              ...next[r][c],
-              manualCandidates: computeCellCandidates(raw, r, c),
-            };
-          }
-        }
-      }
-      return next;
-    });
-  }, []);
-
-  // Clear all manual notes
+  // Clear all manual notes (undoable)
   const handleClearAllCandidates = useCallback(() => {
-    setBoard((prev) => {
-      return prev.map((row) =>
-        row.map((cell) => ({
-          ...cell,
-          manualCandidates: new Set<SudokuDigit>(),
-        }))
-      );
-    });
-  }, []);
+    if (isWon) return;
+    commitMove(composeClearAllNotesMove(board));
+  }, [board, isWon, commitMove]);
 
   /**
-   * Fills every empty cell where `digit` is the ONLY auto-candidate, then
+   * Fills every empty cell where `digit` is the ONLY candidate, then
    * erases that digit from manual candidates in all peer cells (row/col/box).
    * Triggered by double-clicking a digit on the keypad.
    *
@@ -395,64 +405,37 @@ export function useSudokuGame(settings: GamePreferenceSettings) {
    */
   const handleAutoFillSingleCandidateDigit = useCallback(
     (digit: SudokuDigit) => {
-      setBoard((prev) => {
-        // Identify all cells where this digit is the sole auto-candidate.
-        const targets: Array<{ row: number; col: number; prevCell: typeof prev[0][0] }> = [];
-        for (let r = 0; r < 9; r++) {
-          for (let c = 0; c < 9; c++) {
-            const cell = prev[r][c];
-            if (
-              cell.currentValue === 0 &&
-              !cell.isGiven &&
-              cell.autoCandidates.size === 1 &&
-              cell.autoCandidates.has(digit)
-            ) {
-              targets.push({ row: r, col: c, prevCell: cell });
-            }
-          }
-        }
-
-        if (targets.length === 0) return prev;
-
-        const next = prev.map((r) => [...r]);
-
-        for (const { row, col } of targets) {
-          next[row][col] = {
-            ...next[row][col],
-            currentValue: digit,
-            manualCandidates: new Set<SudokuDigit>(),
-          };
-
-          if (settings.autoEraseCandidatesOnInput) {
-            cleanPeerCandidates(next, row, col, digit);
-          }
-        }
-
-        refreshMatrixDerivations(next);
-
-        // Build a single batch history record covering all filled cells so
-        // one Undo reverts all of them atomically.
-        const batchChanges: SingleCellChange[] = targets.map(({ row, col, prevCell }) => ({
-          coordinate: { row, col },
-          previousValue: prevCell.currentValue,
-          nextValue: digit,
-          previousCandidates: new Set(prevCell.manualCandidates),
-          nextCandidates: new Set<SudokuDigit>(),
-        }));
-
-        setHistory((h) => [...h, { changes: batchChanges }]);
-        setRedoHistory([]);
-
-        const raw = extractRawMatrix(next);
-        if (isBoardCompletedSuccessfully(raw, puzzlePackage.solutionGrid)) {
-          setIsWon(true);
-        }
-
-        return next;
-      });
+      if (isWon) return;
+      const { nextBoard, moveRecord } = applySingleCandidateAutoFill(
+        board,
+        digit,
+        settings.autoEraseCandidatesOnInput
+      );
+      if (!moveRecord) return;
+      const composed = composeMoveWithCascade(nextBoard, moveRecord.changes, cascadeSettings);
+      if (composed.moveRecord) {
+        const batchMistakes = countBatchMistakes(
+          composed.moveRecord.changes,
+          puzzlePackage.solutionGrid
+        );
+        if (batchMistakes > 0) setMistakesCount((prev) => prev + batchMistakes);
+      }
+      commitMove(composed);
     },
-    [settings.autoEraseCandidatesOnInput, puzzlePackage.solutionGrid]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [board, isWon, puzzlePackage.solutionGrid, commitMove, settings]
   );
+
+  useEffect(() => {
+    if (!settings.autoFillSingleCandidate) return;
+    commitMove(composeMoveWithCascade(cloneBoardMatrix(boardRef.current), [], cascadeSettings));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    settings.autoFillSingleCandidate,
+    settings.showAutoCandidates,
+    settings.autoEraseCandidatesOnInput,
+    boardEpoch,
+  ]);
 
   return {
     difficulty,
@@ -460,6 +443,7 @@ export function useSudokuGame(settings: GamePreferenceSettings) {
     selectedCell,
     selectedDigit,
     isPencilMode,
+    isEraserMode,
     timerSeconds,
     isWon,
     mistakesCount,
@@ -470,8 +454,10 @@ export function useSudokuGame(settings: GamePreferenceSettings) {
     setSelectedCell,
     setSelectedDigit,
     setIsPencilMode,
+    setIsEraserMode,
     handleCellClick,
     handleDigitInput,
+    handleKeyboardDigitInput,
     handleErase,
     handleHint,
     handleUndo,

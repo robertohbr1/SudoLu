@@ -3,6 +3,7 @@ import { Undo2, Redo2, Eraser, Edit3, Lightbulb, ListPlus, Trash2 } from 'lucide
 
 interface ActionToolbarProps {
   readonly isPencilMode: boolean;
+  readonly isEraserMode: boolean;
   readonly canUndo: boolean;
   readonly canRedo: boolean;
   readonly onTogglePencilMode: () => void;
@@ -16,6 +17,7 @@ interface ActionToolbarProps {
 
 export const ActionToolbar: React.FC<ActionToolbarProps> = ({
   isPencilMode,
+  isEraserMode,
   canUndo,
   canRedo,
   onTogglePencilMode,
@@ -51,7 +53,11 @@ export const ActionToolbar: React.FC<ActionToolbarProps> = ({
       <button
         onClick={onErase}
         title="Apagar número ou notas da célula (Backspace/Del)"
-        className="flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+        className={`flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl text-xs font-medium transition-all ${
+          isEraserMode
+            ? 'bg-rose-600 text-white shadow-md'
+            : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+        }`}
       >
         <Eraser className="w-5 h-5 mb-0.5" />
         <span>Apagar</span>
@@ -81,7 +87,7 @@ export const ActionToolbar: React.FC<ActionToolbarProps> = ({
 
       <button
         onClick={onHint}
-        title="Revelar dica para a célula selecionada"
+        title="Revelar dica para a célula selecionada (Tecla H)"
         className="flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-xl text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
       >
         <Lightbulb className="w-5 h-5 mb-0.5 text-amber-500" />

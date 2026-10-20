@@ -1,6 +1,7 @@
 import React, { useCallback, useRef } from 'react';
 import { SudokuBoardMatrix, SudokuDigit } from '../types/sudoku.types';
 import { InputEntryMode } from '../types/settings.types';
+import { evaluateRemainingDigits } from '../engine/gameEngine';
 
 interface NumberKeypadProps {
   readonly board: SudokuBoardMatrix;
@@ -15,22 +16,6 @@ const DIGITS: readonly SudokuDigit[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 /** Double-click threshold in milliseconds. */
 const DOUBLE_CLICK_DELAY_MS = 280;
 
-function countRemainingDigits(board: SudokuBoardMatrix): Map<SudokuDigit, number> {
-  const counts = new Map<SudokuDigit, number>();
-  for (const d of DIGITS) counts.set(d, 9);
-
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      const val = board[r][c].currentValue;
-      if (val !== 0) {
-        const prev = counts.get(val as SudokuDigit) ?? 9;
-        counts.set(val as SudokuDigit, Math.max(0, prev - 1));
-      }
-    }
-  }
-  return counts;
-}
-
 /**
  * Renders the 1-9 digit selection bar.
  *
@@ -44,7 +29,7 @@ export const NumberKeypad: React.FC<NumberKeypadProps> = ({
   onSelectDigit,
   onDoubleClickDigit,
 }) => {
-  const remainingCounts = countRemainingDigits(board);
+  const digitStatuses = evaluateRemainingDigits(board);
   // Tracks last-click timestamp per digit to detect double-clicks manually
   // (using native onDoubleClick together with onClick causes onClick to fire twice).
   const lastClickTimeRef = useRef<Map<SudokuDigit, number>>(new Map());
@@ -72,9 +57,9 @@ export const NumberKeypad: React.FC<NumberKeypadProps> = ({
     <div className="w-full max-w-[500px] mx-auto">
       <div className="grid grid-cols-9 gap-1 sm:gap-2">
         {DIGITS.map((digit) => {
-          const remaining = remainingCounts.get(digit) ?? 0;
+          const status = digitStatuses.get(digit) ?? { remaining: 9, isCompleted: false };
           const isSelected = selectedDigit === digit;
-          const isCompleted = remaining === 0;
+          const isCompleted = status.isCompleted;
 
           return (
             <button
@@ -99,7 +84,7 @@ export const NumberKeypad: React.FC<NumberKeypadProps> = ({
                     : 'text-slate-400 dark:text-slate-500'
                 }`}
               >
-                {isCompleted ? '✓' : remaining}
+                {isCompleted ? '✓' : status.remaining}
               </span>
             </button>
           );
@@ -109,7 +94,7 @@ export const NumberKeypad: React.FC<NumberKeypadProps> = ({
       {entryMode === 'digit-first' && (
         <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-2">
           {selectedDigit
-            ? `Dígito ${selectedDigit} selecionado — clique em células para preencher · duplo-clique no número para auto-preencher candidatos únicos`
+            ? `Dígito ${selectedDigit} selecionado — clique nas células para preencher · duplo-clique no número para auto-preencher candidatos únicos`
             : 'Clique em um número para selecioná-lo · duplo-clique para preencher células onde ele é o único candidato'}
         </p>
       )}

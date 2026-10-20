@@ -4,7 +4,7 @@ import {
   findConflictCells,
   isBoardCompletedSuccessfully,
 } from '../src/engine/validator';
-import { RawNumericMatrix } from '../src/types/sudoku.types';
+import { RawNumericMatrix, SudokuDigit } from '../src/types/sudoku.types';
 
 describe('validator', () => {
   it('correctly identifies peers (row, column, box)', () => {
@@ -41,7 +41,10 @@ describe('validator', () => {
 
   it('checks successful board completion against solution matrix', () => {
     const solved: RawNumericMatrix = Array.from({ length: 9 }, (_, r) =>
-      Array.from({ length: 9 }, (_, c) => ((r * 3 + Math.floor(r / 3) + c) % 9) + 1 as any)
+      Array.from(
+        { length: 9 },
+        (_, c) => (((r * 3 + Math.floor(r / 3) + c) % 9) + 1) as SudokuDigit
+      )
     );
 
     expect(isBoardCompletedSuccessfully(solved, solved)).toBe(true);

@@ -4,7 +4,7 @@ import {
   countSudokuSolutions,
   cloneNumericMatrix,
 } from '../src/engine/boardSolver';
-import { RawNumericMatrix } from '../src/types/sudoku.types';
+import { RawNumericMatrix, SudokuDigit } from '../src/types/sudoku.types';
 
 describe('boardSolver', () => {
   const samplePuzzle: RawNumericMatrix = [
@@ -45,11 +45,20 @@ describe('boardSolver', () => {
     expect(count).toBe(1);
   });
 
-  it('returns 0 solutions for an impossible puzzle', () => {
+  it('returns 0 solutions for an impossible puzzle with conflicts', () => {
     const impossible: RawNumericMatrix = samplePuzzle.map((r) => [...r]);
     // Introduce conflict in row 0
     (impossible as number[][])[0][2] = 5;
     const solution = solveSudokuPuzzle(impossible);
     expect(solution).toBeNull();
+    expect(countSudokuSolutions(impossible, 2)).toBe(0);
+  });
+
+  it('regression: rejects a completely filled grid that contains duplicate conflicts', () => {
+    const invalidFullGrid: RawNumericMatrix = Array.from({ length: 9 }, () =>
+      Array.from({ length: 9 }, () => 1 as SudokuDigit)
+    );
+    expect(solveSudokuPuzzle(invalidFullGrid)).toBeNull();
+    expect(countSudokuSolutions(invalidFullGrid, 2)).toBe(0);
   });
 });
