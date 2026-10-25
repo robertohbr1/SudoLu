@@ -93,9 +93,9 @@ export function useSudokuGame(settings: GamePreferenceSettings) {
   }, [settings.entryMode]);
 
   /**
-   * Single entry point for every board mutation that must be undoable:
-   * pushes ONE history record (player action + automatic consequences).
-   */
+    * Single entry point for every board mutation that must be undoable:
+    * pushes ONE history record (player action + automatic consequences).
+    */
   const commitMove = useCallback(
     (composed: ComposedMove) => {
       const record = composed.moveRecord;
