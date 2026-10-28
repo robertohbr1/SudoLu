@@ -4,6 +4,7 @@ export interface GamePreferenceSettings {
   readonly showAutoCandidates: boolean;
   readonly allowManualCandidateEdit: boolean;
   readonly autoEraseCandidatesOnInput: boolean;
+  readonly autoFillSingleCandidate: boolean;
   readonly highlightMatchingDigits: boolean;
   readonly highlightPeerCells: boolean;
   readonly highlightConflicts: boolean;
@@ -15,6 +16,7 @@ export const INITIAL_GAME_SETTINGS: GamePreferenceSettings = {
   showAutoCandidates: false,
   allowManualCandidateEdit: true,
   autoEraseCandidatesOnInput: true,
+  autoFillSingleCandidate: false,
   highlightMatchingDigits: true,
   highlightPeerCells: true,
   highlightConflicts: true,

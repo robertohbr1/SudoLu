@@ -12,15 +12,22 @@ interface SudokuBoardProps {
   readonly onCellClick: (row: number, col: number) => void;
 }
 
-function resolveActiveDigit(
+/**
+ * Determina qual dígito (1-9) está ativo para destaque no tabuleiro e nas anotações.
+ *
+ * @example
+ * resolveActiveDigit(5, null, board) // => 5
+ */
+export function resolveActiveDigit(
   selectedDigit: SudokuDigit | null,
   selectedCell: CellCoordinate | null,
   board: SudokuBoardMatrix
 ): SudokuDigit | null {
-  if (selectedDigit !== null) return selectedDigit;
-  if (!selectedCell) return null;
-  const val = board[selectedCell.row][selectedCell.col].currentValue;
-  return val !== 0 ? (val as SudokuDigit) : null;
+  if (selectedCell) {
+    const val = board[selectedCell.row][selectedCell.col].currentValue;
+    if (val !== 0) return val as SudokuDigit;
+  }
+  return selectedDigit;
 }
 
 export const SudokuBoard: React.FC<SudokuBoardProps> = ({
@@ -47,9 +54,11 @@ export const SudokuBoard: React.FC<SudokuBoardProps> = ({
                   const c = boxCol * 3 + innerCol;
                   const cell = board[r][c];
                   const isSelected = selectedCell?.row === r && selectedCell?.col === c;
-                  const isPeer = selectedCell ? areCellsPeers(selectedCell.row, selectedCell.col, r, c) : false;
-                  const isMatchingDigit = activeDigit !== null && cell.currentValue === activeDigit;
-                  const isCandidateMatch = activeDigit !== null && cell.currentValue === 0;
+                  const isPeer = selectedCell
+                    ? areCellsPeers(selectedCell.row, selectedCell.col, r, c)
+                    : false;
+                  const isMatchingDigit =
+                    activeDigit !== null && cell.currentValue === activeDigit;
 
                   return (
                     <SudokuCell
@@ -58,7 +67,7 @@ export const SudokuBoard: React.FC<SudokuBoardProps> = ({
                       isSelected={isSelected}
                       isPeer={isPeer}
                       isMatchingDigit={isMatchingDigit}
-                      isCandidateMatch={isCandidateMatch}
+                      activeDigit={activeDigit}
                       settings={settings}
                       onClick={onCellClick}
                     />
